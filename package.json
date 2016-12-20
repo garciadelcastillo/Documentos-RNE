@@ -1,0 +1,23 @@
+{
+  "name": "documentos-rne",
+  "version": "1.0.0",
+  "description": "A batch downloader and renamer for the radio documentary series of RNE",
+  "main": "app.js",
+  "dependencies": {
+    "cheerio": "^0.22.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/garciadelcastillo/Documentos-RNE.git"
+  },
+  "author": "Jose Luis Garcia del Castillo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/garciadelcastillo/Documentos-RNE/issues"
+  },
+  "homepage": "https://github.com/garciadelcastillo/Documentos-RNE#readme"
+}
