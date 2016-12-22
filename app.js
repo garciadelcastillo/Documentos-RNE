@@ -11,47 +11,46 @@
 
 */
 
+// This is just for reference, the real main one will be derived from a table page loader AJAX req url
+var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
+
+// Max items to check on virtual ajax query
+var maxCheckedItems = 400;   // as of 2016.12.20 there are 351 published documentaries
+
+// Max items to download (could be less than the check if only wanted to download the most recent...)
+var maxDownloadItems = 400;
+
+// Podcasts under this duration in seconds will NOT be downloaded
+// (there are a bunch of negligible ~50 secs teasers)
+var minPodLength = 120;
+
+// Wait time in secs to wait until next download is triggered
+// (let's not overload the server ;)
+var waitTime = 60;
+
+// Real url as ajax query to fetch an HTML will links to ALL documentaries
+var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" 
+	+ maxCheckedItems + "&ctx=1938";
+
+// Absolute or relative target download path
+var downloadPath = "./downloads";
+// var downloadPath = "D:/downloads";
+
+
+
+//////////////////////////////////////////////////////////////
+// UNLESS YOU KNOW WHAT YOU ARE DOING, DON'T TOUCH BELOW ;) // 
+//////////////////////////////////////////////////////////////
+
 // Load modules
 var http = require('http');
 var fs = require('fs');
 var util = require('util');
 var cheerio = require('cheerio');
 var sanitize = require('sanitize-filename');
-var request = require('request');
-var progress = require('request-progress');
 var nodeID3 = require('node-id3');
 
-
-
-// This is just for reference, the real main one will be derived from a table page loader AJAX req url
-var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
-
-// Max items to check on virtual ajax query
-var maxCheckedItems = 30;   // as of 2016.12.20 there are 351 published documentaries
-
-// Max items to download (could be less than the check if only wanted to download the most recent...)
-var maxDownloadItems = 400;
-
-// Minimum duration in secs for the podcast to be downloaded
-// (there are a bunch of ~50 secs teasers)
-var minPodLength = 120;  
-
-// Wait time in secs to wait until next download is triggered
-// (let's not overload the server ;)
-var waitTime = 5;
-
-// Real url as ajax query to fetch an HTML will links to ALL documentaries
-var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" 
-	+ maxCheckedItems + "&ctx=1938";
-
-// Aboslute or relative download path
-// var downloadPath = "D:/downloads";
-var downloadPath = "./downloads";
-
-
-
-
-// NO NEED TO TOUCH FROM HERE ON... 
+// Some process vars
 var podcasts = [];
 var downloadId = 0;
 var downloadCount = 0;
@@ -62,7 +61,7 @@ if (!fs.existsSync(downloadPath)) {
 	fs.mkdirSync(downloadPath);
 }
 
-// Initialize logger: http://stackoverflow.com/a/21061306/1934487
+// Initialize a console + file logger: http://stackoverflow.com/a/21061306/1934487
 var log_file = fs.createWriteStream(downloadPath + '/log.txt', {flags : 'w'});  // choose 'a' to add to the existing file instead
 var log_stdout = process.stdout;
 console.log = function(d) { //
@@ -70,11 +69,17 @@ console.log = function(d) { //
   log_stdout.write(util.format(d) + '\n');
 };
 
-
+// Let's go!
 console.log("STARTING BATCH DOWNLOAD on " + new Date());
 parseHTML(mainURL);
 
 
+
+
+
+// A function to fetch the database query url, 
+// parse the response into objects and trigger the
+// download queue 
 function parseHTML(url) {
 	var body, $;
 
@@ -87,11 +92,11 @@ function parseHTML(url) {
 
 		res.on('end', function() {
 			console.log("Done parsing " + url);
-            // console.log(body);
             
 			// Cheerio/jQuery
             $ = cheerio.load(body);
 
+            // Parse table objects into Podcasts
             $(".ContentTabla")
             	.children("ul")
             	.children(".odd,.even")
@@ -108,8 +113,9 @@ function parseHTML(url) {
             }
             console.log("Found " + count + " podcasts under " + minPodLength + "s long");
 
+            // Trigger download queue 
             console.log("Starting download of " + (podcasts.length - count) + " programs");
-        	downloadNextPod();	// trigger download queue    	
+        	downloadNextPod();	   	
 
 		});
 
@@ -121,7 +127,7 @@ function parseHTML(url) {
 }
 
 
-
+// A function that sequentually downloads the next podcast in queue
 // Based on http://stackoverflow.com/a/22907134/1934487
 function downloadNextPod() {
 
@@ -131,6 +137,7 @@ function downloadNextPod() {
 		return;
 	}
 
+	// File mngmt
 	var podObj = podcasts[downloadId++];
 	var fileName = sanitize(podObj.dateArr.join("-") + " - " + podObj.title + ".mp3");
 	var dest = downloadPath + "/" + fileName;
@@ -141,35 +148,38 @@ function downloadNextPod() {
 		fs.mkdirSync(downloadPath);
 	}
 
+	// Timers
 	var startTime = Date.now();
-
 	console.log(" ");
 	console.log((new Date()).toString());
-	
+
+	// Download if over minimum duration
 	// if (podObj.duration < minPodLength) {  // DEBUG
 	if (podObj.duration > minPodLength) {
 		console.log("Starting download #" + downloadCount + ": " + fileName);
 
 		var fileWriter = fs.createWriteStream(dest);
+		
+		// The main request
 		var req = http.get(podObj.mp3url, function(res) {
 
 			//http://stackoverflow.com/a/20203043/1934487
 			var resLen = parseInt(res.headers['content-length'], 10);
 			var cur = 0;
 			var total = (resLen / 1048576).toFixed(3); //1048576 - bytes in  1Megabyte
-			var perc = 0;
-
 			podObj.fileSize = total;
+			var perc = 0;
 
 			res.pipe(fileWriter);
 			
+			// Download progress on the console
 			res.on('data', function(chunk) {
 				cur += chunk.length;
 				perc = (100 * cur / 1048576 / total).toFixed(2);
-				// console.log("Downloaded " + (cur / 1048576).toFixed(3) + " of " + total + " = " + Math.round(100 * cur / 1048576 / total) + "%");
 				process.stdout.write("Downloaded " + perc + "% of " + total + " MB\r");
 			})
 
+			// Close the file, add id3 tags and timeout next download
 			fileWriter.on('finish', function() {
 				var duration = millisToMins(Date.now() - startTime);
 				console.log("Download complete: " + podObj.fileSize + " MB in " + duration + " mins");
@@ -180,7 +190,8 @@ function downloadNextPod() {
 				var tags = {
 					title: podObj.dateArr.join("-") + " - " + podObj.title,
 					artist: "Documentos de RNE",
-					year: podObj.dateArr[0]
+					year: podObj.dateArr[0],
+					comment: podObj.detail
 				};
 
 				var success = nodeID3.write(tags, dest);
@@ -204,18 +215,15 @@ function downloadNextPod() {
 	}
 }
 
+// Pause before starting new download, we don't want people
+// at RTVE to pull the plug... ;) 
 function timeoutDownload() {
 	console.log("Waiting " + waitTime + " seconds...");
 	setTimeout(downloadNextPod, waitTime * 1000);
 }
 
-function millisToMins(millis) {
-	var m = "" + Math.floor(millis / 60000);
-	while (m.length < 2) m = "0" + m;
-	var s =  "" + Math.round((millis % 60000) / 1000);
-	while (s.length < 2) s = "0" + s;
-	return m + ":" + s;
-}
+
+
 
 
 
@@ -272,7 +280,14 @@ function Podcast($, elem) {
 
 
 // UTILITY FUNCTIONS
-
+// Number to string conversion
+function millisToMins(millis) {
+	var m = "" + Math.floor(millis / 60000);
+	while (m.length < 2) m = "0" + m;
+	var s =  "" + Math.round((millis % 60000) / 1000);
+	while (s.length < 2) s = "0" + s;
+	return m + ":" + s;
+}
 // Returns the duration in seconds given a string represnetation in the form "HH:MM:SS" or "MM:SS"
 function durationStringToSeconds(durStr) {
 	var digits = durStr.split(":");
