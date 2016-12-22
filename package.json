@@ -5,6 +5,8 @@
   "main": "app.js",
   "dependencies": {
     "cheerio": "^0.22.0",
+    "request": "^2.79.0",
+    "request-progress": "^3.0.0",
     "sanitize-filename": "^1.6.1"
   },
   "devDependencies": {},

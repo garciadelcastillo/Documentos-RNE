@@ -17,15 +17,17 @@ var fs = require('fs');
 var util = require('util');
 var cheerio = require('cheerio');
 var sanitize = require('sanitize-filename');
+var request = require('request');
+var progress = require('request-progress');
 
 // This is just for reference, the real main one will be derived from a table page loader AJAX req url
 var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
 
 // Max items to check on virtual ajax query
-var maxCheckedItems = 400;   // as of 2016.12.20 there are 351 published documentaries
+var maxCheckedItems = 30;   // as of 2016.12.20 there are 351 published documentaries
 
 // Max items to download (could be less than the check if only wanted to download the most recent...)
-var maxDownloadItems = 5;
+var maxDownloadItems = 400;
 
 // Minimum duration in secs for the podcast to be downloaded
 // (there are a bunch of ~50 secs teasers)
@@ -33,7 +35,7 @@ var minPodLength = 120;
 
 // Wait time in secs to wait until next download is triggered
 // (let's not overload the server ;)
-var waitTime = 120;
+var waitTime = 5;
 
 // Real url as ajax query to fetch an HTML will links to ALL documentaries
 var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" 
@@ -140,28 +142,52 @@ function downloadNextPod() {
 
 	console.log(" ");
 	console.log((new Date()).toString());
-	// if (podObj.duration < minPodLength) {  // DEBUG
-	if (podObj.duration > minPodLength) {
-		console.log("Starting download of " + fileName);
+	if (podObj.duration < minPodLength) {  // DEBUG
+	// if (podObj.duration > minPodLength) {
+		console.log("Starting download #" + downloadCount + ": " + fileName);
 
-		var file = fs.createWriteStream(dest);
-		var req = http.get(podObj.mp3url, function(res) {
-			res.pipe(file);
-			file.on('finish', function() {
-				var duration = millisToMins(Date.now() - startTime);
-				console.log("Finished downloading " + fileName + " in " + duration + "mins");
-				downloadCount++;
-				file.close(timeoutDownload);
-			});
+		var fileWriter = fs.createWriteStream(dest);
+		// var req = http.get(podObj.mp3url, function(res) {
+		// 	res.pipe(fileWriter);
+		// 	fileWriter.on('finish', function() {
+		// 		var duration = millisToMins(Date.now() - startTime);
+		// 		console.log("Finished downloading " + fileName + " in " + duration + "mins");
+		// 		downloadCount++;
+		// 		fileWriter.close(timeoutDownload);
+		// 	});
 		
-		}).on('error', function(err) {
-			fs.unlink(dest);
+		// }).on('error', function(err) {
+		// 	fs.unlink(dest);
 
+		// 	console.log("ERROR DOWNLOADING " + fileName);
+		// 	console.log(err.message);
+
+		// 	timeoutDownload();  // continue with next
+		// });
+
+		// WHY U NOT WORKING??
+		progress(request(podObj.mp3url, {
+			throttle: 500,                    // Throttle the progress event to 2000ms, defaults to 1000ms 
+		    delay: 0                       // Only start to emit after 1000ms delay, defaults to 0ms 
+		    // lengthHeader: 'x-transfer-length'  // Length header to use, defaults to content-length 
+		
+		})
+		.on('progress', function(state) {
+			console.log(state);
+		})
+		.on('end', function() {
+			var duration = millisToMins(Date.now() - startTime);
+			console.log("Finished downloading " + fileName + " in " + duration + " mins");
+			downloadCount++;
+			fileWriter.close(timeoutDownload);
+		})
+		.on('error', function(err) {
+			fs.unlink(dest);
 			console.log("ERROR DOWNLOADING " + fileName);
 			console.log(err.message);
-
 			timeoutDownload();  // continue with next
-		});
+		})
+		.pipe(fileWriter));
 
 	} else {
 		console.log("Skipping " + fileName);
@@ -177,7 +203,11 @@ function timeoutDownload() {
 }
 
 function millisToMins(millis) {
-	return "" + Math.floor(millis / 60000) + ":" + millis % 60000;
+	var m = "" + Math.floor(millis / 60000);
+	while (m.length < 2) m = "0" + m;
+	var s =  "" + Math.round((millis % 60000) / 1000);
+	while (s.length < 2) s = "0" + s;
+	return m + ":" + s;
 }
 
 
@@ -234,13 +264,18 @@ function Podcast($, elem) {
 
 // UTILITY FUNCTIONS
 
-// Returns the duration in seconds given a string represnetation in the form "HH:MM"
+// Returns the duration in seconds given a string represnetation in the form "HH:MM:SS" or "MM:SS"
 function durationStringToSeconds(durStr) {
 	var digits = durStr.split(":");
-	var seconds = 60 * Number(digits[0]);
-	seconds += Number(digits[1]);
+	var seconds = 0;
+	if (digits.length == 2) {
+		seconds = 60 * Number(digits[0]) + Number(digits[1]);
+	} else if (digits.length == 3) {
+		seconds = 3600 * Number(digits[0]) + 60 * Number(digits[1]) + Number(digits[2]);
+	}
 	return seconds;
 }
+
 
 // A hash map of spanish months to values
 var monthAbbrv = {
