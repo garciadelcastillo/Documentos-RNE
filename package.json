@@ -4,7 +4,8 @@
   "description": "A batch downloader and renamer for the radio documentary series of RNE",
   "main": "app.js",
   "dependencies": {
-    "cheerio": "^0.22.0"
+    "cheerio": "^0.22.0",
+    "sanitize-filename": "^1.6.1"
   },
   "devDependencies": {},
   "scripts": {

@@ -15,22 +15,27 @@
 var http = require('http');
 var fs = require('fs');
 var cheerio = require('cheerio');
+var sanitize = require('sanitize-filename');
 
 
 // This is just for reference, the real main one will be derived from a table page loader AJAX req url
 var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
 
 // Max items for virtual ajax query
-var maxItems = 10;   // as of 2016.12.20 there are 351 published documentaries
+var maxItems = 30;   // as of 2016.12.20 there are 351 published documentaries
 
 // Real url as ajax query to fetch an HTML will links to ALL documentaries
 var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" + maxItems + "&ctx=1938";
 
+// Aboslute or relative download path
+// var downloadPath = "D:\\Temp\\";
+var downloadPath = "./downloads";
+
 
 
 // NO NEED TO TOUCH FROM HERE ON... 
-
 var podcasts = [];
+var downloadId = 0;
 
 parseHTML(mainURL);
 
@@ -58,7 +63,18 @@ function parseHTML(url) {
 	            	podcasts.push(new Podcast($, elem));
             });
 
-        	console.log(podcasts);
+        	// console.log(podcasts);
+
+        	// for (var i = 0; i < podcasts.length; i++) {
+        	// 	if (podcasts[i].duration < 60) {
+        	// 		console.log("Downloading " + podcasts[i].title);
+        	// 		download(podcasts[i].mp3url, downloadPath + i + ".mp3");
+        	// 	}
+        	// }
+
+
+
+        	downloadNextPod();	// trigger download queue    	
 
 		});
 
@@ -72,24 +88,106 @@ function parseHTML(url) {
 
 
 
+
+// // Based on http://stackoverflow.com/a/22907134/1934487
+// function download(url, dest, callback) {
+// 	var file = fs.createWriteStream(dest);
+// 	var req = http.get(url, function(res) {
+// 		res.pipe(file);
+// 		file.on('finish', function() {
+// 			file.close(callback);
+// 		});
+	
+// 	}).on('error', function(err) {
+// 		fs.unlink(dest);
+// 		if (callback) {
+// 			callback(err.message);
+// 		}
+// 	});
+// }
+
+// Based on http://stackoverflow.com/a/22907134/1934487
+function downloadNextPod() {
+
+	// Done?
+	if (downloadId >= podcasts.length) {
+		console.log("FINISHED DOWNLOADING ALL FILES, exiting...");
+		return;
+	}
+
+
+	var podObj = podcasts[downloadId++];
+	var fileName = sanitize(podObj.dateArr.join("-") + " - " + podObj.title + ".mp3");
+
+	var dest = downloadPath + "/" + fileName;
+
+	// Check if download path exists
+	if (!fs.existsSync(downloadPath)) {
+		console.log("Creating directory " + downloadPath);
+		fs.mkdirSync(downloadPath);
+	}
+
+	if (podObj.duration < 60) {
+		console.log("Starting download of " + fileName);
+
+		var file = fs.createWriteStream(dest);
+		var req = http.get(podObj.mp3url, function(res) {
+			res.pipe(file);
+			file.on('finish', function() {
+				console.log("Finished downloading " + fileName);
+				file.close(downloadNextPod);
+			});
+		
+		}).on('error', function(err) {
+			fs.unlink(dest);
+
+			console.log("ERROR DOWNLOADING " + fileName);
+			console.log(err.message);
+
+			downloadNextPod();  // continue with next
+		});
+
+	} else {
+		downloadNextPod();  // continue with next
+
+	}
+
+} 
+
+
+
+
+
 // A class representing a podcast element constructed via the list element representing it
 function Podcast($, elem) {
 
 	this.$ = $;
 	this.jQElem = this.$(elem);
 
-	this.id = this.jQElem.children(".col_tit").attr("id");
-	// this.title = this.jQElem.children(".col_tit").text().trim();
-	this.title = this.jQElem.children(".tultip").children(".tooltip").children(".titulo-tooltip").text();
-	this.detail =  this.jQElem.children(".tultip").children(".tooltip").children(".detalle").text();
-	this.detail = this.detail.replace(/\r?\n|\r/g, " ");  // clean newline chars
+	this.id = this.jQElem.children(".col_tit")
+		.attr("id");
+
+	this.title = this.jQElem.children(".tultip")
+		.children(".tooltip")
+		.children(".titulo-tooltip")
+		.text()
+		.trim();
+
+	this.detail =  this.jQElem.children(".tultip")
+		.children(".tooltip")
+		.children(".detalle")
+		.text()
+		.replace(/\r?\n|\r/g, " ");  // clean newline chars
+
 	this.durationStr = this.jQElem.children(".col_dur").text();
 	this.duration = durationStringToSeconds(this.durationStr);
 	this.popularity = this.jQElem.children(".col_pop").text();
 	this.dateStr = this.jQElem.children(".col_fec").text();
 	this.dateArr = dateStringToArray(this.dateStr);
 
-	this.mp3url = this.jQElem.children(".col_tip").children("a").attr("href");
+	this.mp3url = this.jQElem.children(".col_tip")
+		.children("a")
+		.attr("href");
 
 	this.toString = function() {
 		return ""
@@ -97,7 +195,8 @@ function Podcast($, elem) {
 			+ this.dateArr.join("-") + " " + this.title + "\r\n"
 			+ this.durationStr + " " + this.popularity + "\r\n"
 			+ this.detail + "\r\n"
-			+ this.mp3url + "\r\n";
+			+ this.mp3url 
+			+ "\r\n";
 	};
 
 	// Node uses the default 'inspect' on console logs: http://stackoverflow.com/a/33469852/1934487
@@ -121,6 +220,22 @@ function durationStringToSeconds(durStr) {
 	return seconds;
 }
 
+// A hash map of spanish months to values
+var monthAbbrv = {
+	"ene": "01",
+	"feb": "02",
+	"mar": "03",
+	"abr": "04",
+	"may": "05",
+	"jun": "06",
+	"jul": "07",
+	"ago": "08",
+	"sep": "09",
+	"oct": "10",
+	"nov": "11",
+	"dic": "12"
+};
+
 // Returns an array of [year, month, day] values for a date representation in the form "DD mon YYYY" (in spanish)
 function dateStringToArray(dateStr) {
 	// The first element of the list reads "pasado Sabado" ("last Saturday")
@@ -140,28 +255,11 @@ function dateStringToArray(dateStr) {
 	// Compute date values for correctly formatted date strings
 	var date = [];
 	var strArr = dateStr.split(" ");
-	date[0] = Number(strArr[2]);
+	date[0] = strArr[2];
 	date[1] = monthAbbrv[strArr[1]];
-	date[2] = Number(strArr[0]);
+	date[2] = strArr[0];
 	return date;
 }
-
-// A hash map of spanish months to values
-var monthAbbrv = {
-	"ene": 1,
-	"feb": 2,
-	"mar": 3,
-	"abr": 4,
-	"may": 5,
-	"jun": 6,
-	"jul": 7,
-	"ago": 8,
-	"sep": 9,
-	"oct": 10,
-	"nov": 11,
-	"dic": 12
-};
-
 
 
 
