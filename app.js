@@ -155,8 +155,8 @@ function downloadNextPod() {
 	console.log((new Date()).toString());
 
 	// Download if over minimum duration
-	if (podObj.duration < minPodLength) {  // DEBUG
-	// if (podObj.duration > minPodLength) {
+	// if (podObj.duration < minPodLength) {  // DEBUG
+	if (podObj.duration > minPodLength) {
 		console.log("Starting download #" + downloadCount + ": " + fileName);
 
 		var fileWriter = fs.createWriteStream(dest);
