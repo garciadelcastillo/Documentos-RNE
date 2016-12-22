@@ -19,6 +19,9 @@ var cheerio = require('cheerio');
 var sanitize = require('sanitize-filename');
 var request = require('request');
 var progress = require('request-progress');
+var nodeID3 = require('node-id3');
+
+
 
 // This is just for reference, the real main one will be derived from a table page loader AJAX req url
 var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
@@ -180,6 +183,18 @@ function downloadNextPod() {
 			console.log("Finished downloading " + fileName + " in " + duration + " mins");
 			downloadCount++;
 			fileWriter.close(timeoutDownload);
+
+			// Write id3 tags
+			var tags = {
+				title: podObj.dateArr.join("-") + " - " + podObj.title,
+				artist: "Documentos de RNE",
+				year: podObj.dateArr[0]
+			};
+
+			var success = nodeID3.write(tags, dest);
+			if (success) console.log("Successfuly written tags");
+
+
 		})
 		.on('error', function(err) {
 			fs.unlink(dest);
