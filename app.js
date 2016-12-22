@@ -26,7 +26,7 @@ var minPodLength = 120;
 
 // Wait time in secs to wait until next download is triggered
 // (let's not overload the server ;)
-var waitTime = 60;
+var waitTime = 1;
 
 // Real url as ajax query to fetch an HTML will links to ALL documentaries
 var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" 
@@ -140,12 +140,13 @@ function downloadNextPod() {
 	// File mngmt
 	var podObj = podcasts[downloadId++];
 	var fileName = sanitize(podObj.dateArr.join("-") + " - " + podObj.title + ".mp3");
-	var dest = downloadPath + "/" + fileName;
+	var downloadDir = downloadPath + "/" + podObj.dateArr[0];
+	var dest = downloadDir + "/" + fileName;
 
 	// Check if download path exists
-	if (!fs.existsSync(downloadPath)) {
-		console.log("Creating directory " + downloadPath);
-		fs.mkdirSync(downloadPath);
+	if (!fs.existsSync(downloadDir)) {
+		console.log("Creating directory " + downloadDir);
+		fs.mkdirSync(downloadDir);
 	}
 
 	// Timers
@@ -154,8 +155,8 @@ function downloadNextPod() {
 	console.log((new Date()).toString());
 
 	// Download if over minimum duration
-	// if (podObj.duration < minPodLength) {  // DEBUG
-	if (podObj.duration > minPodLength) {
+	if (podObj.duration < minPodLength) {  // DEBUG
+	// if (podObj.duration > minPodLength) {
 		console.log("Starting download #" + downloadCount + ": " + fileName);
 
 		var fileWriter = fs.createWriteStream(dest);
@@ -209,7 +210,7 @@ function downloadNextPod() {
 
 
 	} else {
-		console.log("Skipping " + fileName + " --> (duration: " + podObj.duration + " < " + minPodLength + ")");
+		console.log("Skipping " + fileName + " --> (duration: " + podObj.duration + "s < " + minPodLength + "s)");
 		downloadNextPod();  // continue with next
 
 	}
