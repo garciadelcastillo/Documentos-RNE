@@ -78,15 +78,26 @@ function Podcast($, elem) {
 	this.$ = $;
 	this.jQElem = this.$(elem);
 
-	this.title = "";
+	this.id = this.jQElem.children(".col_tit").attr("id");
+	// this.title = this.jQElem.children(".col_tit").text().trim();
+	this.title = this.jQElem.children(".tultip").children(".tooltip").children(".titulo-tooltip").text();
+	this.detail =  this.jQElem.children(".tultip").children(".tooltip").children(".detalle").text();
+	this.detail = this.detail.replace(/\r?\n|\r/g, " ");  // clean newline chars
 	this.durationStr = this.jQElem.children(".col_dur").text();
 	this.duration = durationStringToSeconds(this.durationStr);
-	this.popularity = "";
+	this.popularity = this.jQElem.children(".col_pop").text();
 	this.dateStr = this.jQElem.children(".col_fec").text();
 	this.dateArr = dateStringToArray(this.dateStr);
 
+	this.mp3url = this.jQElem.children(".col_tip").children("a").attr("href");
+
 	this.toString = function() {
-		return "notitle " + this.duration + " " + this.dateArr;
+		return ""
+			// + this.id + "\r\n" 
+			+ this.dateArr.join("-") + " " + this.title + "\r\n"
+			+ this.durationStr + " " + this.popularity + "\r\n"
+			+ this.detail + "\r\n"
+			+ this.mp3url + "\r\n";
 	};
 
 	// Node uses the default 'inspect' on console logs: http://stackoverflow.com/a/33469852/1934487
@@ -117,16 +128,16 @@ function dateStringToArray(dateStr) {
 	var m = dateStr.match(/\d\d \w\w\w \d\d\d\d/g);  // quick and dirty check
 	if (m == null) {
 		var date = new Date();
-
-		// Compute last Saturday's date
 		var d = date.getDay();
 		if (d != 6) {
-			date.setTime(date.getTime() - (d + 1) * 24 * 3600 * 1000);  // roll time back this many milliseconds, to account for month/year jumps
-			console.log(date);
+			date.setTime(date.getTime() - (d + 1) * 24 * 3600 * 1000);  // roll time back this many milliseconds. this accounts for month/year jumps, leap days, etc
 		}
-		return [date.getFullYear(), date.getMonth() + 1, date.getDate()];
+		var arr = [date.getFullYear(), date.getMonth() + 1, date.getDate()];
+		console.log("Invalid date string for '" + dateStr + "', applied last Saturday's: " + arr.join("-"));
+		return arr;
 	}
 
+	// Compute date values for correctly formatted date strings
 	var date = [];
 	var strArr = dateStr.split(" ");
 	date[0] = Number(strArr[2]);
