@@ -26,7 +26,7 @@ var minPodLength = 120;
 
 // Wait time in secs to wait until next download is triggered
 // (let's not overload the server ;)
-var waitTime = 1;
+var waitTime = 60;
 
 // Real url as ajax query to fetch an HTML will links to ALL documentaries
 var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" 
