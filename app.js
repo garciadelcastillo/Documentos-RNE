@@ -145,68 +145,60 @@ function downloadNextPod() {
 
 	console.log(" ");
 	console.log((new Date()).toString());
-	if (podObj.duration < minPodLength) {  // DEBUG
-	// if (podObj.duration > minPodLength) {
+	
+	// if (podObj.duration < minPodLength) {  // DEBUG
+	if (podObj.duration > minPodLength) {
 		console.log("Starting download #" + downloadCount + ": " + fileName);
 
 		var fileWriter = fs.createWriteStream(dest);
-		// var req = http.get(podObj.mp3url, function(res) {
-		// 	res.pipe(fileWriter);
-		// 	fileWriter.on('finish', function() {
-		// 		var duration = millisToMins(Date.now() - startTime);
-		// 		console.log("Finished downloading " + fileName + " in " + duration + "mins");
-		// 		downloadCount++;
-		// 		fileWriter.close(timeoutDownload);
-		// 	});
+		var req = http.get(podObj.mp3url, function(res) {
+
+			//http://stackoverflow.com/a/20203043/1934487
+			var resLen = parseInt(res.headers['content-length'], 10);
+			var cur = 0;
+			var total = (resLen / 1048576).toFixed(3); //1048576 - bytes in  1Megabyte
+			var perc = 0;
+
+			podObj.fileSize = total;
+
+			res.pipe(fileWriter);
+			
+			res.on('data', function(chunk) {
+				cur += chunk.length;
+				perc = (100 * cur / 1048576 / total).toFixed(2);
+				// console.log("Downloaded " + (cur / 1048576).toFixed(3) + " of " + total + " = " + Math.round(100 * cur / 1048576 / total) + "%");
+				process.stdout.write("Downloaded " + perc + "% of " + total + " MB\r");
+			})
+
+			fileWriter.on('finish', function() {
+				var duration = millisToMins(Date.now() - startTime);
+				console.log("Download complete: " + podObj.fileSize + " MB in " + duration + " mins");
+				downloadCount++;
+				fileWriter.close(timeoutDownload);
+
+				// Write id3 tags
+				var tags = {
+					title: podObj.dateArr.join("-") + " - " + podObj.title,
+					artist: "Documentos de RNE",
+					year: podObj.dateArr[0]
+				};
+
+				var success = nodeID3.write(tags, dest);
+				if (success) console.log("Successfuly written tags");
+			});
 		
-		// }).on('error', function(err) {
-		// 	fs.unlink(dest);
-
-		// 	console.log("ERROR DOWNLOADING " + fileName);
-		// 	console.log(err.message);
-
-		// 	timeoutDownload();  // continue with next
-		// });
-
-		// WHY U NOT WORKING??
-		progress(request(podObj.mp3url, {
-			throttle: 500,                    // Throttle the progress event to 2000ms, defaults to 1000ms 
-		    delay: 0                       // Only start to emit after 1000ms delay, defaults to 0ms 
-		    // lengthHeader: 'x-transfer-length'  // Length header to use, defaults to content-length 
-		
-		})
-		.on('progress', function(state) {
-			console.log(state);
-		})
-		.on('end', function() {
-			var duration = millisToMins(Date.now() - startTime);
-			console.log("Finished downloading " + fileName + " in " + duration + " mins");
-			downloadCount++;
-			fileWriter.close(timeoutDownload);
-
-			// Write id3 tags
-			var tags = {
-				title: podObj.dateArr.join("-") + " - " + podObj.title,
-				artist: "Documentos de RNE",
-				year: podObj.dateArr[0]
-			};
-
-			var success = nodeID3.write(tags, dest);
-			if (success) console.log("Successfuly written tags");
-
-
-		})
-		.on('error', function(err) {
+		}).on('error', function(err) {
 			fs.unlink(dest);
+
 			console.log("ERROR DOWNLOADING " + fileName);
 			console.log(err.message);
+
 			timeoutDownload();  // continue with next
-		})
-		.pipe(fileWriter));
+		});
+
 
 	} else {
-		console.log("Skipping " + fileName);
-		console.log("--> Duration: " + podObj.duration);
+		console.log("Skipping " + fileName + " --> (duration: " + podObj.duration + " < " + minPodLength + ")");
 		downloadNextPod();  // continue with next
 
 	}
@@ -254,6 +246,8 @@ function Podcast($, elem) {
 	this.popularity = this.jQElem.children(".col_pop").text();
 	this.dateStr = this.jQElem.children(".col_fec").text();
 	this.dateArr = dateStringToArray(this.dateStr);
+
+	this.fileSize = 0;  // in Mb
 
 	this.mp3url = this.jQElem.children(".col_tip")
 		.children("a")
