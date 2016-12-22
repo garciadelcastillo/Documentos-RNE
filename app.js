@@ -14,15 +14,18 @@
 // Load modules
 var http = require('http');
 var fs = require('fs');
+var util = require('util');
 var cheerio = require('cheerio');
 var sanitize = require('sanitize-filename');
-var winston = require('winston');
 
 // This is just for reference, the real main one will be derived from a table page loader AJAX req url
 var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
 
-// Max items for virtual ajax query
-var maxItems = 30;   // as of 2016.12.20 there are 351 published documentaries
+// Max items to check on virtual ajax query
+var maxCheckedItems = 400;   // as of 2016.12.20 there are 351 published documentaries
+
+// Max items to download (could be less than the check if only wanted to download the most recent...)
+var maxDownloadItems = 5;
 
 // Minimum duration in secs for the podcast to be downloaded
 // (there are a bunch of ~50 secs teasers)
@@ -30,10 +33,11 @@ var minPodLength = 120;
 
 // Wait time in secs to wait until next download is triggered
 // (let's not overload the server ;)
-var waitTime = 1;
+var waitTime = 120;
 
 // Real url as ajax query to fetch an HTML will links to ALL documentaries
-var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" + maxItems + "&ctx=1938";
+var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" 
+	+ maxCheckedItems + "&ctx=1938";
 
 // Aboslute or relative download path
 // var downloadPath = "D:/downloads";
@@ -45,13 +49,31 @@ var downloadPath = "./downloads";
 // NO NEED TO TOUCH FROM HERE ON... 
 var podcasts = [];
 var downloadId = 0;
+var downloadCount = 0;
 
+// Check if download path exists
+if (!fs.existsSync(downloadPath)) {
+	console.log("Creating directory " + downloadPath);
+	fs.mkdirSync(downloadPath);
+}
+
+// Initialize logger: http://stackoverflow.com/a/21061306/1934487
+var log_file = fs.createWriteStream(downloadPath + '/log.txt', {flags : 'w'});  // choose 'a' to add to the existing file instead
+var log_stdout = process.stdout;
+console.log = function(d) { //
+  log_file.write(util.format(d) + '\n');
+  log_stdout.write(util.format(d) + '\n');
+};
+
+
+console.log("STARTING BATCH DOWNLOAD on " + new Date());
 parseHTML(mainURL);
 
 
 function parseHTML(url) {
 	var body, $;
 
+	console.log("Requesting file list");
 	var request = http.get(url, function(res) {
 
 		res.on('data', function(chunk) {
@@ -72,6 +94,16 @@ function parseHTML(url) {
 	            	podcasts.push(new Podcast($, elem));
             });
 
+            // Run some quick checks and logs
+            console.log("Found " + podcasts.length + " podcasts");
+
+            var count = 0;
+            for (var i = 0; i < podcasts.length; i++) {
+            	if (podcasts[i].duration < minPodLength) count++;
+            }
+            console.log("Found " + count + " podcasts under " + minPodLength + "s long");
+
+            console.log("Starting download of " + (podcasts.length - count) + " programs");
         	downloadNextPod();	// trigger download queue    	
 
 		});
@@ -89,8 +121,8 @@ function parseHTML(url) {
 function downloadNextPod() {
 
 	// Done?
-	if (downloadId >= podcasts.length) {
-		console.log("FINISHED DOWNLOADING ALL FILES, exiting...");
+	if (downloadId >= podcasts.length || downloadCount >= maxDownloadItems) {
+		console.log("FINISHED DOWNLOADING " + downloadCount + " FILES, exiting...");
 		return;
 	}
 
@@ -106,17 +138,19 @@ function downloadNextPod() {
 
 	var startTime = Date.now();
 
-	if (podObj.duration < 60) {  // DEBUG
-	// if (podObj.duration > minPodLength) {
+	console.log(" ");
+	console.log((new Date()).toString());
+	// if (podObj.duration < minPodLength) {  // DEBUG
+	if (podObj.duration > minPodLength) {
 		console.log("Starting download of " + fileName);
 
 		var file = fs.createWriteStream(dest);
 		var req = http.get(podObj.mp3url, function(res) {
 			res.pipe(file);
 			file.on('finish', function() {
-				var duration = Date.now() - startTime;
-				console.log("Finished downloading " + fileName + " in " + duration + "ms");
-				// file.close(downloadNextPod);
+				var duration = millisToMins(Date.now() - startTime);
+				console.log("Finished downloading " + fileName + " in " + duration + "mins");
+				downloadCount++;
 				file.close(timeoutDownload);
 			});
 		
@@ -126,13 +160,13 @@ function downloadNextPod() {
 			console.log("ERROR DOWNLOADING " + fileName);
 			console.log(err.message);
 
-			// downloadNextPod();  // continue with next
 			timeoutDownload();  // continue with next
 		});
 
 	} else {
+		console.log("Skipping " + fileName);
+		console.log("--> Duration: " + podObj.duration);
 		downloadNextPod();  // continue with next
-		// timeoutDownload();  // continue with next
 
 	}
 }
@@ -142,7 +176,9 @@ function timeoutDownload() {
 	setTimeout(downloadNextPod, waitTime * 1000);
 }
 
-
+function millisToMins(millis) {
+	return "" + Math.floor(millis / 60000) + ":" + millis % 60000;
+}
 
 
 
@@ -191,7 +227,6 @@ function Podcast($, elem) {
 	// Node uses the default 'inspect' on console logs: http://stackoverflow.com/a/33469852/1934487
 	this.inspect = this.toString;
 }
-
 
 
 
@@ -247,4 +282,3 @@ function dateStringToArray(dateStr) {
 	date[2] = strArr[0];
 	return date;
 }
-
