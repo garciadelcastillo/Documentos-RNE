@@ -16,7 +16,7 @@ var http = require('http');
 var fs = require('fs');
 var cheerio = require('cheerio');
 var sanitize = require('sanitize-filename');
-
+var winston = require('winston');
 
 // This is just for reference, the real main one will be derived from a table page loader AJAX req url
 var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
@@ -24,12 +24,21 @@ var baseURL = "http://www.rtve.es/alacarta/audios/documentos-rne/";
 // Max items for virtual ajax query
 var maxItems = 30;   // as of 2016.12.20 there are 351 published documentaries
 
+// Minimum duration in secs for the podcast to be downloaded
+// (there are a bunch of ~50 secs teasers)
+var minPodLength = 120;  
+
+// Wait time in secs to wait until next download is triggered
+// (let's not overload the server ;)
+var waitTime = 1;
+
 // Real url as ajax query to fetch an HTML will links to ALL documentaries
 var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orderCriteria=DESC&modl=TOC&locale=es&pageSize=" + maxItems + "&ctx=1938";
 
 // Aboslute or relative download path
-// var downloadPath = "D:\\Temp\\";
+// var downloadPath = "D:/downloads";
 var downloadPath = "./downloads";
+
 
 
 
@@ -63,17 +72,6 @@ function parseHTML(url) {
 	            	podcasts.push(new Podcast($, elem));
             });
 
-        	// console.log(podcasts);
-
-        	// for (var i = 0; i < podcasts.length; i++) {
-        	// 	if (podcasts[i].duration < 60) {
-        	// 		console.log("Downloading " + podcasts[i].title);
-        	// 		download(podcasts[i].mp3url, downloadPath + i + ".mp3");
-        	// 	}
-        	// }
-
-
-
         	downloadNextPod();	// trigger download queue    	
 
 		});
@@ -87,25 +85,6 @@ function parseHTML(url) {
 
 
 
-
-
-// // Based on http://stackoverflow.com/a/22907134/1934487
-// function download(url, dest, callback) {
-// 	var file = fs.createWriteStream(dest);
-// 	var req = http.get(url, function(res) {
-// 		res.pipe(file);
-// 		file.on('finish', function() {
-// 			file.close(callback);
-// 		});
-	
-// 	}).on('error', function(err) {
-// 		fs.unlink(dest);
-// 		if (callback) {
-// 			callback(err.message);
-// 		}
-// 	});
-// }
-
 // Based on http://stackoverflow.com/a/22907134/1934487
 function downloadNextPod() {
 
@@ -115,10 +94,8 @@ function downloadNextPod() {
 		return;
 	}
 
-
 	var podObj = podcasts[downloadId++];
 	var fileName = sanitize(podObj.dateArr.join("-") + " - " + podObj.title + ".mp3");
-
 	var dest = downloadPath + "/" + fileName;
 
 	// Check if download path exists
@@ -127,15 +104,20 @@ function downloadNextPod() {
 		fs.mkdirSync(downloadPath);
 	}
 
-	if (podObj.duration < 60) {
+	var startTime = Date.now();
+
+	if (podObj.duration < 60) {  // DEBUG
+	// if (podObj.duration > minPodLength) {
 		console.log("Starting download of " + fileName);
 
 		var file = fs.createWriteStream(dest);
 		var req = http.get(podObj.mp3url, function(res) {
 			res.pipe(file);
 			file.on('finish', function() {
-				console.log("Finished downloading " + fileName);
-				file.close(downloadNextPod);
+				var duration = Date.now() - startTime;
+				console.log("Finished downloading " + fileName + " in " + duration + "ms");
+				// file.close(downloadNextPod);
+				file.close(timeoutDownload);
 			});
 		
 		}).on('error', function(err) {
@@ -144,15 +126,22 @@ function downloadNextPod() {
 			console.log("ERROR DOWNLOADING " + fileName);
 			console.log(err.message);
 
-			downloadNextPod();  // continue with next
+			// downloadNextPod();  // continue with next
+			timeoutDownload();  // continue with next
 		});
 
 	} else {
 		downloadNextPod();  // continue with next
+		// timeoutDownload();  // continue with next
 
 	}
+}
 
-} 
+function timeoutDownload() {
+	console.log("Waiting " + waitTime + " seconds...");
+	setTimeout(downloadNextPod, waitTime * 1000);
+}
+
 
 
 
@@ -201,9 +190,7 @@ function Podcast($, elem) {
 
 	// Node uses the default 'inspect' on console logs: http://stackoverflow.com/a/33469852/1934487
 	this.inspect = this.toString;
-
 }
-
 
 
 
@@ -260,7 +247,4 @@ function dateStringToArray(dateStr) {
 	date[2] = strArr[0];
 	return date;
 }
-
-
-
 
