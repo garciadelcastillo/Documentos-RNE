@@ -12,7 +12,7 @@ El autor de esta aplicación no se hace responsable del uso que se pueda dar a e
 
 ## Instrucciones
 
-* Instala [Node.js](https://nodejs.org/en/) en Win/Mac/Linux.
+* Instala [Node.js](https://nodejs.org/en/) en Win/Mac/Linux. Si deseas que los mp3 tengan las etiquetas id3 modificadas con el titulo y la fecha del podcast, tendrás que instalar una versión específica y modificar la aplicación ligeramente. Lee [Known Bugs](https://github.com/garciadelcastillo/Documentos-RNE#hello-world).
 * Clona este repositorio. Si no eres usuario habitual de .git, simplemente pincha en el botón verde arriba a la derecha y descárgate la aplicación en un .ZIP. A día de hoy (22/12/2016) el archivo contiene ~350 programas con un tamaño aproximado de 21 Gb. Asegurate de descomprimir el archivo ZIP en un unidad con suficiente espacio (HDD portátiles y USB sticks valen también).
 * Abre un terminal (o un Command Prompt) en la carpeta descomprimida (por ejemplo `Documentos-RNE-master`). 
 * Instala las dependencias con `npm` (el `$` no hay que teclearlo...):
@@ -29,4 +29,14 @@ A partir de aquí, la aplicación conectará con la base de datos del archivo, y
 A disfrutar! 
 
 ## Known Bugs
-`node-id3` da un fallo escribiendo id3 tags en archivos grandes. El fallo es causado por incompatibilidades con Node v6.x. Para poder reescribir las etiquetas id3, utiliza una versión anterior de Node, como por ejemplo [v5.12.0](https://nodejs.org/download/release/v5.12.0/).
+`node-id3` da un fallo escribiendo id3 tags en archivos grandes. El fallo es causado por incompatibilidades con Node v6.x. Para poder reescribir las etiquetas id3, utiliza una versión anterior de Node, como por ejemplo [v5.12.0](https://nodejs.org/download/release/v5.12.0/). 
+
+Así mismo, tendrás que modificar ligeramente la aplicación. Abre el archivo `app.js` con cualquier editor de texto (Notepad, Sublime, Atom...), y sustituye la línea
+```javascript
+var writeID3Tags = false;
+```
+
+por
+```javascript
+var writeID3Tags = true;
+```
