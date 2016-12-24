@@ -36,6 +36,9 @@ var mainURL = "http://www.rtve.es/alacarta/interno/contenttable.shtml?pbq=1&orde
 var downloadPath = "./downloads";
 // var downloadPath = "D:/downloads";
 
+// Override default id3 tags on mp3 with podcast data?
+var writeID3Tags = false;  // node-id3 is having a hard time writing tags to big files... :(
+
 
 
 //////////////////////////////////////////////////////////////
@@ -187,16 +190,21 @@ function downloadNextPod() {
 				downloadCount++;
 				fileWriter.close(timeoutDownload);
 
-				// Write id3 tags
-				var tags = {
-					title: podObj.dateArr.join("-") + " - " + podObj.title,
-					artist: "Documentos de RNE",
-					year: podObj.dateArr[0],
-					comment: podObj.detail
-				};
+				// node-id3 is having a hard time writing tags to big files?!?! 
+				// Looks like a version problem: v.6.9.2 doesn't work, downgrading to 5.12.0 makes tis work... 
 
-				var success = nodeID3.write(tags, dest);
-				if (success) console.log("Successfuly written tags");
+				// Write id3 tags
+				if (writeID3Tags) {
+					var tags = {
+						title: podObj.dateArr.join("-") + " - " + podObj.title,
+						artist: "Documentos de RNE",
+						year: podObj.dateArr[0]
+						// comment: podObj.detail  // not supported by node-id3
+					};
+
+					var success = nodeID3.write(tags, dest);
+					if (success) console.log("Successfuly written tags");
+				}
 			});
 		
 		}).on('error', function(err) {

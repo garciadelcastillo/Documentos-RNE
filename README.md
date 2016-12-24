@@ -27,3 +27,6 @@ $ node app.js
 A partir de aquí, la aplicación conectará con la base de datos del archivo, y se descargará todos los podcasts uno a uno, renombrándolos y aplicando tags a los mp3 ;)
 
 A disfrutar! 
+
+## Known Bugs
+`node-id3` da un fallo escribiendo id3 tags en archivos grandes. El fallo es causado por incompatibilidades con Node v6.x. Para poder reescribir las etiquetas id3, utiliza una versión anterior de Node, como por ejemplo [v5.12.0](https://nodejs.org/download/release/v5.12.0/).
