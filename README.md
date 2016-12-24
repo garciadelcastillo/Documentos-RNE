@@ -29,7 +29,7 @@ A partir de aquí, la aplicación conectará con la base de datos del archivo, y
 A disfrutar! 
 
 ## Known Bugs
-`node-id3` da un fallo escribiendo id3 tags en archivos grandes. El fallo es causado por incompatibilidades con Node v6.x. Para poder reescribir las etiquetas id3, utiliza una versión anterior de Node, como por ejemplo [v5.12.0](https://nodejs.org/download/release/v5.12.0/). 
+`node-id3` da un [fallo escribiendo id3 tags en archivos grandes](https://github.com/Zazama/node-id3/issues/7). El fallo es causado por incompatibilidades con Node v6.x. Para poder reescribir las etiquetas id3, utiliza una versión anterior de Node, como por ejemplo [v5.12.0](https://nodejs.org/download/release/v5.12.0/). 
 
 Así mismo, tendrás que modificar ligeramente la aplicación. Abre el archivo `app.js` con cualquier editor de texto (Notepad, Sublime, Atom...), y sustituye la línea
 ```javascript
