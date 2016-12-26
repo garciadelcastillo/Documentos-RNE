@@ -37,7 +37,7 @@ var downloadPath = "./downloads";
 // var downloadPath = "D:/downloads";
 
 // Override default id3 tags on mp3 with podcast data?
-var writeID3Tags = false;  // node-id3 is having a hard time writing tags to big files... :(
+var writeID3Tags = true;
 
 
 
@@ -198,8 +198,8 @@ function downloadNextPod() {
 					var tags = {
 						title: podObj.dateArr.join("-") + " - " + podObj.title,
 						artist: "Documentos de RNE",
-						year: podObj.dateArr[0]
-						// comment: podObj.detail  // not supported by node-id3
+						year: podObj.dateArr[0].toString()  // node-id3 doesn't support non-string values as of v0.0.7
+						// comment: podObj.detail  			// not supported by node-id3
 					};
 
 					var success = nodeID3.write(tags, dest);
