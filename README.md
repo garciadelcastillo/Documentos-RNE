@@ -11,19 +11,19 @@ El autor de esta aplicación no se hace responsable del uso que se pueda dar a e
 
 
 ## Instrucciones
-
 * Instala [Node.js](https://nodejs.org/en/) en Win/Mac/Linux.
-* Clona este repositorio. Si no eres usuario habitual de .git, simplemente pincha en el botón verde arriba a la derecha y descárgate la aplicación en un .ZIP. A día de hoy (22/12/2016) el archivo contiene ~315 programas con un tamaño aproximado de 15.5 Gb. Asegurate de descomprimir el archivo ZIP en un unidad con suficiente espacio (HDD portátiles y USB sticks valen también).
+* Clona este repositorio. Si no eres usuario habitual de .git, simplemente pincha en el botón verde arriba a la derecha de esta página y descárgate la aplicación en un .ZIP. A día de hoy (22/12/2016) el archivo contiene ~315 programas con un tamaño aproximado de 15.5 Gb. Asegurate de descomprimir el archivo ZIP en un unidad con suficiente espacio (HDD portátiles y USB sticks valen también).
 * Abre un terminal (o un Command Prompt) en la carpeta descomprimida (por ejemplo `Documentos-RNE-master`). 
 * Instala las dependencias con `npm` (el `$` no hay que teclearlo...):
 ```
 $ npm install
 ```
-* (opcional) Abre el archivo `app.js` con cualquier editor de texto (Notepad, Sublime, Atom...) y configura la aplicación. Si no te sientes muy cómodo programando o no te apetece calentarte la cabza, puedes saltarte este paso, y la aplicación descagará todos los podcasts a la carpeta `downloads` en el directorio de la aplicación. 
+* (opcional) Abre el archivo `app.js` con cualquier editor de texto (Notepad, Sublime, Atom...) y configura la aplicación. Si no te sientes muy cómodo programando o no te apetece calentarte la cabeza, puedes saltarte este paso, y la aplicación descagará todos los podcasts a la carpeta `downloads` en el directorio de la aplicación. 
 * Inicia la aplicación tecleando en el terminal:
 ```
 $ node app.js
 ```
 A partir de aquí, la aplicación conectará con la base de datos del archivo, y se descargará todos los podcasts uno a uno, renombrándolos y aplicando tags a los mp3 ;)
 
-A disfrutar!
+## Troubleshooting
+Cualquier duda/problema/sugerencia puede ser reportada en el apartado 'issues' de este repositorio. 
